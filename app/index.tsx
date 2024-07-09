@@ -1,6 +1,13 @@
-import { Canvas, Group, Image, useImage } from "@shopify/react-native-skia";
-import { useEffect } from "react";
-import { useWindowDimensions } from "react-native";
+import {
+  Canvas,
+  Group,
+  Image,
+  matchFont,
+  Text,
+  useImage,
+} from "@shopify/react-native-skia";
+import { useEffect, useState } from "react";
+import { Platform, useWindowDimensions } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -10,6 +17,8 @@ import {
   Easing,
   Extrapolation,
   interpolate,
+  runOnJS,
+  useAnimatedReaction,
   useDerivedValue,
   useFrameCallback,
   useSharedValue,
@@ -24,6 +33,7 @@ const JUMP_FORCE = -500;
 
 export default function MainPage() {
   const { width, height } = useWindowDimensions();
+  const [score, setScore] = useState(0);
 
   const bg = useImage(require("@/assets/sprites/background-day.png"));
   const bird = useImage(require("@/assets/sprites/yellowbird-upflap.png"));
@@ -34,6 +44,9 @@ export default function MainPage() {
   const x = useSharedValue(width);
 
   const birdY = useSharedValue(height / 2);
+  const birdPos = {
+    x: width / 4,
+  };
   const birdYVelocity = useSharedValue(0);
 
   const birdTransform = useDerivedValue(() => {
@@ -52,6 +65,23 @@ export default function MainPage() {
     return { x: width / 4 + 32, y: birdY.value + 24 };
   });
 
+  useAnimatedReaction(
+    () => x.value,
+    (currentValue, previousValue) => {
+      const middle = birdPos.x;
+
+      if (
+        currentValue !== previousValue &&
+        previousValue &&
+        currentValue <= middle &&
+        previousValue > middle
+      ) {
+        // do something ✨
+        runOnJS(setScore)(score + 1);
+      }
+    },
+  );
+
   useFrameCallback(({ timeSincePreviousFrame: dt }) => {
     if (!dt) {
       return;
@@ -68,13 +98,20 @@ export default function MainPage() {
       ),
       -1,
     );
-  });
+  }, []);
 
   const pipeOffset = 0;
 
   const gesture = Gesture.Tap().onStart(() => {
     birdYVelocity.value = JUMP_FORCE;
   });
+
+  const fontFamily = Platform.select({ ios: "Helvetica", default: "serif" });
+  const fontStyle = {
+    fontFamily,
+    fontSize: 40,
+  };
+  const font = matchFont(fontStyle);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <GestureDetector gesture={gesture}>
@@ -109,11 +146,18 @@ export default function MainPage() {
             <Image
               image={bird}
               y={birdY}
-              x={width / 4}
+              x={birdPos.x}
               width={64}
               height={48}
             />
           </Group>
+          {/* Score */}
+          <Text
+            x={width / 2 - 30}
+            y={100}
+            text={score.toString()}
+            font={font}
+          />
         </Canvas>
       </GestureDetector>
     </GestureHandlerRootView>
